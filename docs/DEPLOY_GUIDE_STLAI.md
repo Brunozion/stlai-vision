@@ -71,7 +71,7 @@ Nao use `Root Directory=apps/api` neste projeto, porque a API depende de `packag
 
 Use o repositorio inteiro e deixe o build no root com:
 
-- `corepack pnpm install --frozen-lockfile && corepack pnpm --filter api build`
+- `corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm --filter api build`
 - `corepack pnpm --filter api start`
 
 ### Variaveis de ambiente da API

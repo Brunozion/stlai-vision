@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     branch: main
-    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter api build
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm --filter api build
     startCommand: corepack pnpm --filter api start
     envVars:
       - key: NODE_ENV

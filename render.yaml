@@ -4,8 +4,9 @@ services:
     runtime: node
     plan: free
     branch: main
-    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm --filter api build
-    startCommand: corepack pnpm --filter api start
+    rootDir: apps/api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production

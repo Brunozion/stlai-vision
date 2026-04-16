@@ -4,7 +4,7 @@ export const createAssetsSchema = z.object({
   assets: z.array(
     z.object({
       storageKey: z.string().trim().min(1),
-      fileUrl: z.string().trim().url(),
+      fileUrl: z.string().trim().min(1),
       mimeType: z.string().trim().min(1).max(100),
       width: z.number().int().positive().nullish(),
       height: z.number().int().positive().nullish(),

@@ -9,6 +9,9 @@ interface PendingUpload {
   id: string;
   file: File;
   previewUrl: string;
+  uploadUrl: string;
+  uploadMimeType: string;
+  uploadSizeBytes: number;
   width: number | null;
   height: number | null;
 }
@@ -28,6 +31,62 @@ async function getImageDimensions(src: string) {
     image.onload = () => resolve({ width: image.width, height: image.height });
     image.onerror = () => resolve({ width: null, height: null });
     image.src = src;
+  });
+}
+
+async function compressImageForUpload(file: File) {
+  const sourceUrl = await readFileAsDataUrl(file);
+
+  return new Promise<{
+    dataUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    width: number | null;
+    height: number | null;
+  }>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => {
+      const maxDimension = 1280;
+      const ratio = Math.min(1, maxDimension / Math.max(image.width, image.height));
+      const targetWidth = Math.max(1, Math.round(image.width * ratio));
+      const targetHeight = Math.max(1, Math.round(image.height * ratio));
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        reject(new Error("Nao foi possivel preparar a imagem para upload."));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Nao foi possivel compactar a imagem."));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Nao foi possivel ler a imagem compactada."));
+          reader.onload = () =>
+            resolve({
+              dataUrl: String(reader.result),
+              mimeType: blob.type || "image/jpeg",
+              sizeBytes: blob.size,
+              width: targetWidth,
+              height: targetHeight,
+            });
+          reader.readAsDataURL(blob);
+        },
+        "image/jpeg",
+        0.82,
+      );
+    };
+    image.onerror = () => reject(new Error("Nao foi possivel processar a imagem enviada."));
+    image.src = sourceUrl;
   });
 }
 
@@ -58,14 +117,18 @@ export function ProjectCreateForm() {
     const mapped = await Promise.all(
       selectedFiles.map(async (file) => {
         const previewUrl = await readFileAsDataUrl(file);
+        const compressed = await compressImageForUpload(file);
         const dimensions = await getImageDimensions(previewUrl);
 
         return {
           id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           file,
           previewUrl,
-          width: dimensions.width,
-          height: dimensions.height,
+          uploadUrl: compressed.dataUrl,
+          uploadMimeType: compressed.mimeType,
+          uploadSizeBytes: compressed.sizeBytes,
+          width: compressed.width ?? dimensions.width,
+          height: compressed.height ?? dimensions.height,
         } satisfies PendingUpload;
       }),
     );
@@ -74,20 +137,23 @@ export function ProjectCreateForm() {
     setError(null);
   }
 
-  async function persistAsset(projectId: string, upload: PendingUpload, sortOrder: number) {
+  async function persistAssets(projectId: string, uploads: PendingUpload[]) {
     const response = await fetch(`${getApiBaseUrl()}/api/v1/projects/${projectId}/assets`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        fileUrl: upload.previewUrl,
-        mimeType: upload.file.type || "image/png",
-        width: upload.width,
-        height: upload.height,
-        sizeBytes: upload.file.size,
-        assetRole: "reference",
-        sortOrder,
+        assets: uploads.map((upload, sortOrder) => ({
+          storageKey: `projects/${projectId}/reference-${sortOrder + 1}-${upload.id}.jpg`,
+          fileUrl: upload.uploadUrl,
+          mimeType: upload.uploadMimeType,
+          width: upload.width,
+          height: upload.height,
+          sizeBytes: upload.uploadSizeBytes,
+          assetRole: "reference",
+          sortOrder,
+        })),
       }),
     });
 
@@ -128,9 +194,7 @@ export function ProjectCreateForm() {
 
       const project = (await response.json()) as { id: string };
 
-      for (const [index, upload] of pendingUploads.entries()) {
-        await persistAsset(project.id, upload, index);
-      }
+      await persistAssets(project.id, pendingUploads);
 
       router.push(`/projects/${project.id}`);
       router.refresh();

@@ -85,6 +85,7 @@ export function ProjectWorkflow({
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingAssetSyncRef = useRef<Promise<UploadedAsset[]> | null>(null);
   const [assets, setAssets] = useState(initialAssets);
   const [context, setContext] = useState<ProjectContext | null>(initialContext);
   const [jobs, setJobs] = useState(initialJobs);
@@ -228,6 +229,43 @@ export function ProjectWorkflow({
     return (await response.json()) as UploadedAsset;
   }
 
+  async function syncPendingUploads() {
+    const persistedAssets: UploadedAsset[] = [];
+
+    for (const [index, item] of localUploads.entries()) {
+      const asset = await persistAsset({
+        fileUrl: item.previewUrl,
+        mimeType: item.file.type || "image/png",
+        width: item.width,
+        height: item.height,
+        sizeBytes: item.file.size,
+        sortOrder: assets.length + index,
+      });
+
+      persistedAssets.push(asset);
+    }
+
+    if (manualUrl.trim()) {
+      const asset = await persistAsset({
+        fileUrl: manualUrl.trim(),
+        mimeType: "image/jpeg",
+        width: null,
+        height: null,
+        sizeBytes: null,
+        sortOrder: assets.length + persistedAssets.length,
+      });
+      persistedAssets.push(asset);
+    }
+
+    if (persistedAssets.length > 0) {
+      setAssets((current) => [...current, ...persistedAssets]);
+      setManualUrl("");
+      setLocalUploads([]);
+    }
+
+    return persistedAssets;
+  }
+
   async function handleLocalFiles(files: FileList | null) {
     if (!files?.length) return;
 
@@ -255,44 +293,24 @@ export function ProjectWorkflow({
     setError(null);
 
     try {
-      const persistedAssets: UploadedAsset[] = [];
-
-      for (const [index, item] of localUploads.entries()) {
-        const asset = await persistAsset({
-          fileUrl: item.previewUrl,
-          mimeType: item.file.type || "image/png",
-          width: item.width,
-          height: item.height,
-          sizeBytes: item.file.size,
-          sortOrder: index,
-        });
-
-        persistedAssets.push(asset);
-      }
-
-      if (manualUrl.trim()) {
-        const asset = await persistAsset({
-          fileUrl: manualUrl.trim(),
-          mimeType: "image/jpeg",
-          width: null,
-          height: null,
-          sizeBytes: null,
-          sortOrder: persistedAssets.length,
-        });
-        persistedAssets.push(asset);
-      }
-
-      if (persistedAssets.length === 0 && assets.length === 0) {
+      if (localUploads.length === 0 && !manualUrl.trim() && assets.length === 0) {
         throw new Error("Adicione pelo menos uma imagem para continuar.");
       }
 
-      if (persistedAssets.length > 0) {
-        setAssets((current) => [...current, ...persistedAssets]);
-      }
-
-      setManualUrl("");
-      setLocalUploads([]);
       setStep("context");
+
+      if (localUploads.length > 0 || manualUrl.trim()) {
+        pendingAssetSyncRef.current = syncPendingUploads()
+          .catch((syncError) => {
+            const message =
+              syncError instanceof Error ? syncError.message : "Nao foi possivel salvar as imagens do projeto.";
+            setError(message);
+            throw syncError;
+          })
+          .finally(() => {
+            pendingAssetSyncRef.current = null;
+          });
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Nao foi possivel concluir o upload.");
     }
@@ -328,7 +346,7 @@ export function ProjectWorkflow({
 
       const savedContext = (await response.json()) as ProjectContext;
       setContext(savedContext);
-      setStep("text");
+      await handleGenerateText();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Erro ao salvar contexto.");
     }
@@ -341,6 +359,10 @@ export function ProjectWorkflow({
     setProgress(12);
 
     try {
+      if (pendingAssetSyncRef.current) {
+        await pendingAssetSyncRef.current;
+      }
+
       const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/generations/text`, {
         method: "POST",
         headers: { "content-type": "application/json" },

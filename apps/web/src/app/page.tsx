@@ -21,10 +21,9 @@ export default async function HomePage() {
         <section className="workspace-hero">
           <div className="workspace-hero__content">
             <span className="workspace-hero__eyebrow">MVP STLAI Vision</span>
-            <h1>Comece pelo upload e transforme uma foto em anuncio premium.</h1>
+            <h1>Suba as imagens e inicie seu anuncio.</h1>
             <p className="workspace-subtitle">
-              A primeira etapa do Vision ja acontece aqui: envie de 1 a 5 imagens do produto, crie o workspace e siga
-              direto para contexto, textos, imagens e resumo final.
+              Envie de 1 a 5 imagens de referencia para abrir o fluxo de contexto, textos, imagens e resumo final.
             </p>
 
             <div className="workspace-hero__metrics">
@@ -53,7 +52,7 @@ export default async function HomePage() {
         <section className="dashboard-grid">
           <SectionCard
             dark
-            description="A primeira tela do fluxo ja e o upload. Suba as imagens aqui e o projeto nasce pronto para continuar."
+            description="Tela 1 do fluxo: envie imagens de referencia, valide o preview e continue."
             eyebrow="Upload inicial"
             title="Suba as imagens do produto"
           >

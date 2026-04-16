@@ -8,6 +8,25 @@ import { registerResultRoutes } from "../modules/results/results.route";
 import { registerUploadRoutes } from "../modules/uploads/uploads.route";
 import { registerWebhookRoutes } from "../modules/webhooks/webhooks.route";
 
+function isAllowedOrigin(origin: string) {
+  if (corsOrigins.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+
+    if (protocol !== "https:") {
+      return false;
+    }
+
+    // Permite o dominio principal e previews da Vercel para o frontend do STLAI Vision.
+    return hostname === "stlai-vision-web.vercel.app" || hostname.endsWith("-brunozions-projects.vercel.app");
+  } catch {
+    return false;
+  }
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: {
@@ -31,7 +50,7 @@ export async function buildApp() {
         return;
       }
 
-      if (corsOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }

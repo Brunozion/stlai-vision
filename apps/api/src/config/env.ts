@@ -5,6 +5,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
   APP_BASE_URL: z.string().url().default("http://localhost:4000"),
+  CORS_ORIGIN: z.string().default("http://localhost:3000"),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(16, "JWT_SECRET deve ter ao menos 16 caracteres"),
   INTERNAL_API_TOKEN: z.string().min(16, "INTERNAL_API_TOKEN deve ter ao menos 16 caracteres"),
@@ -27,3 +28,7 @@ if (!parsedEnv.success) {
 }
 
 export const env = parsedEnv.data;
+
+export const corsOrigins = env.CORS_ORIGIN.split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);

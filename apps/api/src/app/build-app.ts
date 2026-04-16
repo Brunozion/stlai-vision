@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
+import { corsOrigins } from "../config/env";
 import { registerGenerationRoutes } from "../modules/generations/generations.route";
 import { registerHealthRoute } from "../modules/health/health.route";
 import { registerProjectRoutes } from "../modules/projects/projects.route";
@@ -24,7 +25,19 @@ export async function buildApp() {
   });
 
   await app.register(cors, {
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin nao permitida pelo CORS"), false);
+    },
     credentials: true,
   });
 

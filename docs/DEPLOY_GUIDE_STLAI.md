@@ -55,7 +55,7 @@ Exemplo:
 NEXT_PUBLIC_API_BASE_URL=https://api-seu-projeto.up.railway.app
 ```
 
-## 3. Deploy da API no Railway
+## 3. Deploy da API no Render
 
 Projeto a deployar:
 
@@ -63,15 +63,25 @@ Projeto a deployar:
 
 Arquivo de apoio:
 
-- [apps/api/railway.json](C:/Users/NDB/Documents/New%20project/apps/api/railway.json)
+- [render.yaml](C:/Users/NDB/Documents/New%20project/render.yaml)
+
+### Importante sobre monorepo no Render
+
+Nao use `Root Directory=apps/api` neste projeto, porque a API depende de `packages/shared`, que esta fora dessa pasta.
+
+Use o repositorio inteiro e deixe o build no root com:
+
+- `corepack pnpm install --frozen-lockfile && corepack pnpm --filter api build`
+- `corepack pnpm --filter api start`
 
 ### Variaveis de ambiente da API
 
 Obrigatorias:
 
 - `NODE_ENV=production`
-- `PORT=3000` ou a porta do provider
-- `APP_BASE_URL=https://api-seu-projeto.up.railway.app`
+- `PORT=10000`
+- `APP_BASE_URL=https://api-seu-projeto.onrender.com`
+- `CORS_ORIGIN=https://seu-frontend.vercel.app`
 - `DATABASE_URL=...`
 - `JWT_SECRET=...`
 - `INTERNAL_API_TOKEN=...`
@@ -90,10 +100,16 @@ O `n8n` deve receber callbacks apontando para a API publicada, nunca para `local
 
 Por isso `APP_BASE_URL` da API precisa ser a URL publica final.
 
+O frontend publicado na Vercel tambem precisa estar liberado no CORS da API:
+
+- `CORS_ORIGIN=https://seu-frontend.vercel.app`
+
+Se quiser permitir preview deployments da Vercel depois, podemos evoluir isso para uma lista separada por virgula.
+
 ## 5. Ordem recomendada
 
 1. GitHub
-2. Railway para API
+2. Render para API
 3. validar `/api/v1/health` e `/api/v1/health/db`
 4. Vercel para frontend
 5. apontar `NEXT_PUBLIC_API_BASE_URL` para a API publicada

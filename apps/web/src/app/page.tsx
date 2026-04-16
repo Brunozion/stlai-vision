@@ -13,18 +13,18 @@ export default async function HomePage() {
   return (
     <AppShell
       activeNav="workspace"
-      eyebrow="Workspace"
-      subtitle="Envie as imagens do produto, complete o contexto e gere anuncios prontos para marketplace em minutos."
+      eyebrow="Novo Projeto"
+      subtitle="Suba as imagens do produto, complete o contexto e gere anuncios prontos para marketplace em minutos."
       title="STLAI Vision"
     >
       <div className="workspace-stack">
         <section className="workspace-hero">
           <div className="workspace-hero__content">
             <span className="workspace-hero__eyebrow">MVP STLAI Vision</span>
-            <h1>Seus produtos prontos para vender com visual premium.</h1>
+            <h1>Comece pelo upload e transforme uma foto em anuncio premium.</h1>
             <p className="workspace-subtitle">
-              Gere imagens, titulos e descricoes com a identidade da STLAI em um fluxo simples para Shopee, Mercado
-              Livre, Amazon e TikTok Shop.
+              A primeira etapa do Vision ja acontece aqui: envie de 1 a 5 imagens do produto, crie o workspace e siga
+              direto para contexto, textos, imagens e resumo final.
             </p>
 
             <div className="workspace-hero__metrics">
@@ -53,9 +53,9 @@ export default async function HomePage() {
         <section className="dashboard-grid">
           <SectionCard
             dark
-            description="Crie um projeto novo para entrar direto no fluxo de upload, contexto e geracao."
-            eyebrow="Novo projeto"
-            title="Comece um anuncio do zero"
+            description="A primeira tela do fluxo ja e o upload. Suba as imagens aqui e o projeto nasce pronto para continuar."
+            eyebrow="Upload inicial"
+            title="Suba as imagens do produto"
           >
             <ProjectCreateForm />
           </SectionCard>

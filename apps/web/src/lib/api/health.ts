@@ -1,4 +1,9 @@
-import type { HealthResponse } from "@stlai/shared";
+interface HealthResponse {
+  status: "ok";
+  service: "api";
+  environment: string;
+  timestamp: string;
+}
 
 export async function fetchApiHealth(apiBaseUrl: string): Promise<HealthResponse> {
   const response = await fetch(`${apiBaseUrl}/api/v1/health`, {

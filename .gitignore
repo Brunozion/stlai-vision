@@ -42,4 +42,4 @@ temp/
 infra/n8n/data/
 
 # local uploads
-uploads/
+/uploads/

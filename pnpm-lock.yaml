@@ -13,9 +13,6 @@ importers:
       '@fastify/cors':
         specifier: ^10.0.1
         version: 10.1.0
-      '@stlai/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@types/node':
         specifier: ^22.7.4
         version: 22.19.17

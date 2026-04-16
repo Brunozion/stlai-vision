@@ -1,0 +1,187 @@
+{
+  "name": "wf_text_generation_stlai",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vision-1-text",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        140
+      ],
+      "webhookId": "vision-1-text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nif (!input.jobId) throw new Error('jobId ausente');\nif (!input.projectId) throw new Error('projectId ausente');\nif (!input.callbacks?.successUrl || !input.callbacks?.failureUrl || !input.callbacks?.token) {\n  throw new Error('callbacks incompletos');\n}\nif (!input.productContext?.productName) throw new Error('productContext.productName ausente');\n\nreturn [{\n  json: {\n    ...input,\n    sourceImages: Array.isArray(input.sourceImages) ? input.sourceImages : [],\n    targetMarketplaces: Array.isArray(input.productContext?.targetMarketplaces)\n      ? input.productContext.targetMarketplaces.join(', ')\n      : '',\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst ctx = data.productContext;\nconst imageLines = (data.sourceImages || []).map((img, index) => `Imagem ${index + 1}: ${img.fileUrl}`).join('\\n');\n\nconst userPrompt = `Voce e um especialista em criacao de anuncios para Shopee e Mercado Livre.\\n\\nSua tarefa e gerar 3 titulos e 1 descricao de produto com foco em conversao e busca organica.\\n\\nDados do produto:\\n- Nome: ${ctx.productName}\\n- Categoria: ${ctx.category || ''}\\n- Contexto: ${ctx.shortContext || ''}\\n- Cor: ${ctx.color || ''}\\n- Material: ${ctx.material || ''}\\n- Dimensoes: ${ctx.dimensionsXcm || ''} cm x ${ctx.dimensionsYcm || ''} cm x ${ctx.dimensionsZcm || ''} cm\\n- Peso: ${ctx.weightGrams || ''} g\\n- Voltagem: ${ctx.voltage || ''}\\n- Marketplaces alvo: ${data.targetMarketplaces}\\n- Idioma: ${data.language || 'pt-BR'}\\n\\nImagens de referencia:\\n${imageLines || 'Nenhuma imagem informada'}\\n\\nGere:\\n- 3 titulos, cada um com uma estrategia diferente: SEO, informativa e criativa\\n- 1 descricao curta, completa, natural e persuasiva\\n- 3 bullets\\n- 3 palavras-chave SEO\\n\\nRegras:\\n- nao invente atributos nao sustentados pelas imagens ou contexto\\n- nao use emoji\\n- nao seja prolixo\\n- retorne somente JSON valido\\n\\nFormato:\\n{\\n  \\\"titles\\\": [\\n    \\\"titulo seo\\\",\\n    \\\"titulo informativo\\\",\\n    \\\"titulo criativo\\\"\\n  ],\\n  \\\"description\\\": \\\"descricao do produto\\\",\\n  \\\"bullets\\\": [\\n    \\\"bullet 1\\\",\\n    \\\"bullet 2\\\",\\n    \\\"bullet 3\\\"\\n  ],\\n  \\\"seoKeywords\\\": [\\n    \\\"keyword 1\\\",\\n    \\\"keyword 2\\\",\\n    \\\"keyword 3\\\"\\n  ]\\n}`;\n\nreturn [{\n  json: {\n    ...data,\n    openAiBody: {\n      model: $env.OPENAI_TEXT_MODEL || 'gpt-4.1-mini',\n      response_format: { type: 'json_object' },\n      messages: [\n        {\n          role: 'system',\n          content: 'Voce gera anuncios para marketplaces brasileiros. Responda apenas JSON valido.'\n        },\n        {\n          role: 'user',\n          content: userPrompt\n        }\n      ]\n    }\n  }\n}];"
+      },
+      "id": "3",
+      "name": "Build OpenAI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.openAiBody}}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "OpenAI Text Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        140
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const previous = $items('Build OpenAI Prompt', 0, 0)[0].json;\nconst response = $input.first().json;\n\nfunction failurePayload(message) {\n  return [{\n    json: {\n      callbackUrl: previous.callbacks.failureUrl,\n      callbackToken: previous.callbacks.token,\n      callbackPayload: {\n        jobId: previous.jobId,\n        jobType: 'text_generation',\n        provider: 'openai',\n        errorCode: 'TEXT_GENERATION_FAILED',\n        errorMessage: message,\n      }\n    }\n  }];\n}\n\nif (response.error) {\n  return failurePayload(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));\n}\n\nconst content = response.choices?.[0]?.message?.content;\nif (!content) {\n  return failurePayload('Resposta vazia do provider de texto');\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (error) {\n  return failurePayload(`Falha ao interpretar JSON do modelo: ${error.message}`);\n}\n\nif (!Array.isArray(parsed.titles) || !parsed.description) {\n  return failurePayload('JSON retornado pelo modelo nao contem titles/description validos');\n}\n\nreturn [{\n  json: {\n    callbackUrl: previous.callbacks.successUrl,\n    callbackToken: previous.callbacks.token,\n    callbackPayload: {\n      jobId: previous.jobId,\n      jobType: 'text_generation',\n      provider: 'openai',\n      result: {\n        titles: parsed.titles,\n        description: parsed.description,\n        bullets: Array.isArray(parsed.bullets) ? parsed.bullets : [],\n        seoKeywords: Array.isArray(parsed.seoKeywords) ? parsed.seoKeywords : [],\n      }\n    }\n  }\n}];"
+      },
+      "id": "5",
+      "name": "Build Callback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callbackUrl}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-token",
+              "value": "={{$json.callbackToken}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.callbackPayload}}",
+        "options": {}
+      },
+      "id": "6",
+      "name": "Callback API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        250,
+        140
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Build OpenAI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build OpenAI Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Text Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Text Request": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Callback API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "stlai-text-v1",
+  "meta": {},
+  "id": "wf_text_generation_stlai"
+}

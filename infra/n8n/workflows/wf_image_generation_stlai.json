@@ -1,0 +1,187 @@
+{
+  "name": "wf_image_generation_stlai",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vision-1-image",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        180
+      ],
+      "webhookId": "vision-1-image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nif (!input.jobId) throw new Error('jobId ausente');\nif (!input.projectId) throw new Error('projectId ausente');\nif (!input.callbacks?.successUrl || !input.callbacks?.failureUrl || !input.callbacks?.token) {\n  throw new Error('callbacks incompletos');\n}\nif (!input.productContext?.productName) throw new Error('productContext.productName ausente');\n\nreturn [{\n  json: {\n    ...input,\n    sourceImages: Array.isArray(input.sourceImages) ? input.sourceImages : [],\n    targetMarketplaces: Array.isArray(input.productContext?.targetMarketplaces)\n      ? input.productContext.targetMarketplaces.join(', ')\n      : '',\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst ctx = data.productContext;\nconst imageLines = (data.sourceImages || []).map((img, index) => `Imagem ${index + 1}: ${img.fileUrl}`).join('\\n');\n\nconst combinedPrompt = `Use as imagens de referencia enviadas pelo usuario para recriar fielmente o produto \\\"${ctx.productName}\\\" e gerar variacoes profissionais para marketplace.\\n\\nDados do produto:\\n- Categoria: ${ctx.category || ''}\\n- Contexto: ${ctx.shortContext || ''}\\n- Cor: ${ctx.color || ''}\\n- Material: ${ctx.material || ''}\\n- Dimensoes: ${ctx.dimensionsXcm || ''} cm x ${ctx.dimensionsYcm || ''} cm x ${ctx.dimensionsZcm || ''} cm\\n\\nImagens de referencia:\\n${imageLines || 'Nenhuma imagem informada'}\\n\\nGere exatamente 3 imagens quadradas em alta qualidade:\\n1. Uma imagem de capa com fundo branco neutro\\n2. Uma imagem com indicacao de medidas visuais\\n3. Uma imagem lifestyle mostrando uso real do produto\\n\\nRegras obrigatorias:\\n- preservar o formato e os detalhes do produto original\\n- sem texto promocional\\n- sem logo\\n- sem marca d'agua\\n- composicao profissional\\n- alta resolucao\\n- foco total no produto`;\n\nreturn [{\n  json: {\n    ...data,\n    imageProviderBody: {\n      model: $env.IMAGE_PROVIDER_MODEL || 'gpt-image-1',\n      prompt: combinedPrompt,\n      size: '1024x1024',\n      n: 3,\n      sourceImages: data.sourceImages.map((img) => img.fileUrl),\n    }\n  }\n}];"
+      },
+      "id": "3",
+      "name": "Build Image Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.IMAGE_PROVIDER_URL}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.IMAGE_PROVIDER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.imageProviderBody}}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Image Provider Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -250,
+        180
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const previous = $items('Build Image Prompt', 0, 0)[0].json;\nconst response = $input.first().json;\n\nfunction failurePayload(message) {\n  return [{\n    json: {\n      callbackUrl: previous.callbacks.failureUrl,\n      callbackToken: previous.callbacks.token,\n      callbackPayload: {\n        jobId: previous.jobId,\n        jobType: 'image_generation',\n        provider: $env.IMAGE_PROVIDER_MODEL || 'image-provider',\n        errorCode: 'IMAGE_GENERATION_FAILED',\n        errorMessage: message,\n      }\n    }\n  }];\n}\n\nif (response.error) {\n  return failurePayload(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));\n}\n\nconst rawImages = response.images || response.data || response.result?.images || response.output || [];\nif (!Array.isArray(rawImages) || rawImages.length === 0) {\n  return failurePayload('Provider de imagem nao retornou imagens em formato reconhecido');\n}\n\nfunction resolveUrl(item) {\n  if (!item) return null;\n  if (typeof item === 'string') return item;\n  if (item.url) return item.url;\n  if (item.fileUrl) return item.fileUrl;\n  if (item.image_url) return item.image_url;\n  if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;\n  if (item.output?.url) return item.output.url;\n  return null;\n}\n\nconst definitions = [\n  { kind: 'white_background', title: 'Catalogo' },\n  { kind: 'dimensions', title: 'Dimensoes' },\n  { kind: 'lifestyle', title: 'Lifestyle' },\n];\n\nconst images = rawImages.slice(0, 3).map((item, index) => {\n  const url = resolveUrl(item);\n  return {\n    imageKind: definitions[index]?.kind || 'lifestyle',\n    title: definitions[index]?.title || `Imagem ${index + 1}`,\n    fileUrl: url,\n    storageKey: `projects/${previous.projectId}/results/${definitions[index]?.kind || `image-${index + 1}`}.png`,\n    width: 1024,\n    height: 1024,\n    variationIndex: index + 1,\n  };\n}).filter((item) => !!item.fileUrl);\n\nif (!images.length) {\n  return failurePayload('Nao foi possivel extrair URLs ou imagens validas da resposta do provider');\n}\n\nreturn [{\n  json: {\n    callbackUrl: previous.callbacks.successUrl,\n    callbackToken: previous.callbacks.token,\n    callbackPayload: {\n      jobId: previous.jobId,\n      jobType: 'image_generation',\n      provider: $env.IMAGE_PROVIDER_MODEL || 'image-provider',\n      result: {\n        images,\n      }\n    }\n  }\n}];"
+      },
+      "id": "5",
+      "name": "Build Callback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callbackUrl}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-token",
+              "value": "={{$json.callbackToken}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.callbackPayload}}",
+        "options": {}
+      },
+      "id": "6",
+      "name": "Callback API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        270,
+        180
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Build Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Image Provider Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Provider Request": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Callback API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "stlai-image-v1",
+  "meta": {},
+  "id": "wf_image_generation_stlai"
+}

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PLAN_TYPES, PROJECT_STATUSES } from "@stlai/shared";
+import { PLAN_TYPES, PROJECT_STATUSES } from "../../shared/constants/project";
 
 export const createProjectSchema = z.object({
   name: z.string().trim().min(1).max(150),

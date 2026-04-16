@@ -1,4 +1,4 @@
-import type { ProjectSummary } from "@stlai/shared";
+import type { ProjectSummary } from "../../shared/types/project";
 import { getDb } from "../../lib/db";
 import { getOrCreateDevUser } from "../users/dev-user";
 import type { CreateProjectInput, UpdateProjectContextInput } from "./projects.schemas";

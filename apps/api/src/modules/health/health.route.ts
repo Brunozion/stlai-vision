@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { HealthResponse } from "@stlai/shared";
+import type { HealthResponse } from "../../shared/contracts/health";
 import { env } from "../../config/env";
 import { checkDatabaseConnection } from "../../lib/db";
 

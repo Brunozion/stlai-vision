@@ -344,6 +344,9 @@ export function ProjectWorkflow({
       const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/generations/text`, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "default",
+        }),
       });
 
       if (!response.ok) {
@@ -393,6 +396,11 @@ export function ProjectWorkflow({
       const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/generations/images`, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          preset: "default_8_pack",
+          aspectRatio: "1:1",
+          sizes: [1000],
+        }),
       });
 
       if (!response.ok) {

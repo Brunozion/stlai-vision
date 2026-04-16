@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type WorkflowStep = "upload" | "context" | "text" | "image" | "video" | "summary";
@@ -12,15 +13,15 @@ const workflowSteps: Array<{ key: WorkflowStep; label: string }> = [
 ];
 
 const navigation = [
-  { href: "/", label: "Workspace", icon: "⌘", key: "workspace" },
-  { href: "/", label: "Meus Projetos", icon: "↺", key: "projects" },
+  { href: "/", label: "Workspace", icon: "W", key: "workspace" },
+  { href: "/", label: "Meus Projetos", icon: "P", key: "projects" },
   { href: "/", label: "Novo stlAI", icon: "+", key: "new" },
 ];
 
 const footerLinks = [
-  { href: "#", label: "Configuracoes", icon: "⚙" },
+  { href: "#", label: "Configuracoes", icon: "S" },
   { href: "#", label: "Ajuda", icon: "?" },
-  { href: "#", label: "Sair", icon: "↲" },
+  { href: "#", label: "Sair", icon: "<" },
 ];
 
 export function AppShell({
@@ -49,9 +50,11 @@ export function AppShell({
       <aside className="vision-sidebar">
         <div className="vision-sidebar__top">
           <Link className="vision-brand" href="/">
-            <span className="vision-brand__mark">✦</span>
+            <span className="vision-brand__logo">
+              <Image alt="STLAI" height={34} priority src="/stlai-logo.png" width={118} />
+            </span>
             <span className="vision-brand__text">
-              <span className="vision-brand__title">stlAI Vision</span>
+              <span className="vision-brand__title">Vision</span>
               <span className="vision-brand__subtitle">Marketplace AI Studio</span>
             </span>
           </Link>
@@ -95,7 +98,7 @@ export function AppShell({
                       className={`stepper__item ${isActive ? "stepper__item--active" : ""} ${isDone ? "stepper__item--done" : ""}`}
                       key={step.key}
                     >
-                      <span className="stepper__bullet">{isDone ? "✓" : index + 1}</span>
+                      <span className="stepper__bullet">{isDone ? "OK" : index + 1}</span>
                       <span>{step.label}</span>
                     </div>
                   );

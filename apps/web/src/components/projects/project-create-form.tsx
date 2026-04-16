@@ -68,10 +68,14 @@ export function ProjectCreateForm() {
         </label>
       </div>
 
+      <p className="form-helper">
+        Assim que o projeto for criado, voce entra direto na jornada de upload, contexto, textos, imagens e resumo.
+      </p>
+
       {error ? <p className="error-text">{error}</p> : null}
 
       <button className="primary-button" disabled={loading} type="submit">
-        {loading ? "Criando..." : "Criar projeto"}
+        {loading ? "Criando..." : "Criar workspace"}
       </button>
     </form>
   );

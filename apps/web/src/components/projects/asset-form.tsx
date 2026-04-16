@@ -56,6 +56,25 @@ export function AssetForm({ projectId }: { projectId: string }) {
 
   return (
     <form className="stack" onSubmit={handleSubmit}>
+      <div className="upload-stage">
+        <div className="upload-stage__header">
+          <h3>Novo Projeto</h3>
+          <p>Arraste uma ou mais imagens ou cole a URL da foto de referencia para alimentar o pipeline do MVP.</p>
+        </div>
+
+        <div className="upload-stage__dropzone">
+          <div>
+            <span className="upload-stage__icon">↥</span>
+            <strong>Cole a URL ou use a referencia existente</strong>
+            <p>
+              A interface ja simula a etapa de upload. Neste MVP, a imagem entra por URL para acelerar a integracao com
+              a API e o n8n.
+            </p>
+            <div className="upload-stage__footnote">Ate 5 imagens por vez • JPG, PNG, WEBP, AVIF, HEIC</div>
+          </div>
+        </div>
+      </div>
+
       <label className="field">
         <span>URL da imagem de referencia</span>
         <input
@@ -83,9 +102,11 @@ export function AssetForm({ projectId }: { projectId: string }) {
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <button className="primary-button" disabled={loading} type="submit">
-        {loading ? "Salvando..." : "Adicionar imagem"}
-      </button>
+      <div className="button-row">
+        <button className="primary-button" disabled={loading} type="submit">
+          {loading ? "Salvando..." : "Adicionar imagem"}
+        </button>
+      </div>
     </form>
   );
 }

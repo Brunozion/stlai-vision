@@ -49,6 +49,9 @@ export function GenerationPanel({ projectId }: { projectId: string }) {
 
   return (
     <div className="stack">
+      <p className="form-helper">
+        Primeiro gere os textos para aprovar a base do anuncio. Depois dispare as imagens para montar a galeria visual.
+      </p>
       <div className="button-row">
         <button className="primary-button" disabled={loadingAction !== null} onClick={() => runGeneration("text")} type="button">
           {loadingAction === "text" ? "Gerando texto..." : "Gerar textos"}

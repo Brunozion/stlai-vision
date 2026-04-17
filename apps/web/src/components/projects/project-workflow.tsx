@@ -133,6 +133,22 @@ export function ProjectWorkflow({
   }, [assets.length, context, imageResults.length, selectedImageIds.length, step, summary, textResult]);
 
   async function refreshProjectData() {
+    const nextState: {
+      assets: UploadedAsset[];
+      jobs: GenerationJob[];
+      textResult: TextResult | null;
+      imageResults: ImageResult[];
+      summary: ProjectSummaryResponse | null;
+      context: ProjectContext | null;
+    } = {
+      assets,
+      jobs,
+      textResult,
+      imageResults,
+      summary,
+      context,
+    };
+
     const [assetsResponse, jobsResponse, textResponse, imagesResponse, summaryResponse, contextResponse] = await Promise.all([
       fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/assets`, { cache: "no-store" }),
       fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/jobs`, { cache: "no-store" }),
@@ -144,30 +160,41 @@ export function ProjectWorkflow({
 
     if (assetsResponse.ok) {
       const payload = (await assetsResponse.json()) as { items: UploadedAsset[] };
+      nextState.assets = payload.items;
       setAssets(payload.items);
     }
 
     if (jobsResponse.ok) {
       const payload = (await jobsResponse.json()) as { items: GenerationJob[] };
+      nextState.jobs = payload.items;
       setJobs(payload.items);
     }
 
     if (textResponse.ok) {
-      setTextResult((await textResponse.json()) as TextResult);
+      const payload = (await textResponse.json()) as TextResult;
+      nextState.textResult = payload;
+      setTextResult(payload);
     }
 
     if (imagesResponse.ok) {
       const payload = (await imagesResponse.json()) as { items: ImageResult[] };
+      nextState.imageResults = payload.items;
       setImageResults(payload.items);
     }
 
     if (summaryResponse.ok) {
-      setSummary((await summaryResponse.json()) as ProjectSummaryResponse);
+      const payload = (await summaryResponse.json()) as ProjectSummaryResponse;
+      nextState.summary = payload;
+      setSummary(payload);
     }
 
     if (contextResponse.ok) {
-      setContext((await contextResponse.json()) as ProjectContext);
+      const payload = (await contextResponse.json()) as ProjectContext;
+      nextState.context = payload;
+      setContext(payload);
     }
+
+    return nextState;
   }
 
   async function pollUntilFinished(jobId: string, mode: "text" | "image") {
@@ -182,12 +209,28 @@ export function ProjectWorkflow({
       setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setProgress(Math.min(92, 20 + attempt * 6));
 
-      if (job.status === "completed") {
-        await refreshProjectData();
+      const refreshed = await refreshProjectData();
+
+      if (mode === "text" && refreshed.textResult) {
         setLoadingMode(null);
         setProgress(100);
-        setStep(mode === "text" ? "text" : "image");
+        setError(null);
+        setStep("text");
         return;
+      }
+
+      if (mode === "image" && refreshed.imageResults.length > 0) {
+        setLoadingMode(null);
+        setProgress(100);
+        setError(null);
+        setStep("image");
+        return;
+      }
+
+      if (job.status === "completed") {
+        setProgress(96);
+        await sleep(1500);
+        continue;
       }
 
       if (job.status === "failed") {
@@ -195,6 +238,24 @@ export function ProjectWorkflow({
       }
 
       await sleep(2500);
+    }
+
+    const finalState = await refreshProjectData();
+
+    if (mode === "text" && finalState.textResult) {
+      setLoadingMode(null);
+      setProgress(100);
+      setError(null);
+      setStep("text");
+      return;
+    }
+
+    if (mode === "image" && finalState.imageResults.length > 0) {
+      setLoadingMode(null);
+      setProgress(100);
+      setError(null);
+      setStep("image");
+      return;
     }
 
     throw new Error("O processamento demorou mais do que o esperado.");

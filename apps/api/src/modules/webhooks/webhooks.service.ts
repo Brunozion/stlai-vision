@@ -20,6 +20,7 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
 
   const job = jobResult.rows[0];
   const effectiveJobType = job.job_type as "text_generation" | "image_generation";
+  const callbackImages = input.result.images ?? input.images ?? [];
 
   await db.query(
     `
@@ -67,10 +68,10 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
     await db.query(`update projects set status = 'text_review', updated_at = now() where id = $1`, [job.project_id]);
   }
 
-  if (effectiveJobType === "image_generation" && input.result.images?.length) {
+  if (effectiveJobType === "image_generation" && callbackImages.length) {
     await db.query(`update image_results set is_current = false where project_id = $1`, [job.project_id]);
 
-    for (const [index, image] of input.result.images.entries()) {
+    for (const [index, image] of callbackImages.entries()) {
       const imageKind = image.imageKind?.trim() || `variation_${index + 1}`;
       const title = image.title?.trim() || `Imagem ${index + 1}`;
       const storageKey = image.storageKey?.trim() || image.fileUrl;
@@ -110,6 +111,25 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
     }
 
     await db.query(`update projects set status = 'completed', updated_at = now() where id = $1`, [job.project_id]);
+  }
+
+  if (effectiveJobType === "image_generation" && callbackImages.length === 0) {
+    await db.query(
+      `
+        update generation_jobs
+        set status = 'failed', error_code = 'IMAGE_CALLBACK_EMPTY', error_message = 'Callback de imagem sem imagens validas.'
+        where id = $1
+      `,
+      [input.jobId],
+    );
+
+    await db.query(`update projects set status = 'failed', updated_at = now() where id = $1`, [job.project_id]);
+
+    return {
+      ok: false,
+      jobId: input.jobId,
+      message: "Callback de imagem recebido sem imagens.",
+    };
   }
 
   if (job.credits_reserved > 0) {

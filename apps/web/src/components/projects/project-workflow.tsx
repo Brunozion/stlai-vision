@@ -209,6 +209,10 @@ export function ProjectWorkflow({
       setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setProgress(Math.min(92, 20 + attempt * 6));
 
+      if (job.status !== "completed" && job.errorMessage) {
+        throw new Error(job.errorMessage);
+      }
+
       const refreshed = await refreshProjectData();
 
       if (mode === "text" && refreshed.textResult) {

@@ -93,7 +93,7 @@ async function markJobProcessing(jobId: string) {
     `
       update generation_jobs
       set status = 'processing', started_at = now()
-      where id = $1
+      where id = $1 and status = 'queued'
     `,
     [jobId],
   );

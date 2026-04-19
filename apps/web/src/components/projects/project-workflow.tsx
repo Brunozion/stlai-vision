@@ -501,7 +501,8 @@ export function ProjectWorkflow({
       });
 
       if (!response.ok) {
-        throw new Error("Nao foi possivel iniciar a geracao de imagens.");
+        const details = await response.text();
+        throw new Error(details || "Nao foi possivel iniciar a geracao de imagens.");
       }
 
       const job = (await response.json()) as GenerationJob;

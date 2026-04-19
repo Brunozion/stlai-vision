@@ -18,37 +18,57 @@ const jobIdParamsSchema = z.object({
 
 export async function registerGenerationRoutes(app: FastifyInstance) {
   app.post("/api/v1/projects/:projectId/generations/text", async (request, reply) => {
-    const { projectId } = projectIdParamsSchema.parse(request.params);
-    const body = createTextGenerationSchema.parse(request.body);
-    const job = await createTextGeneration(projectId, body);
+    try {
+      const { projectId } = projectIdParamsSchema.parse(request.params);
+      const body = createTextGenerationSchema.parse(request.body);
+      const job = await createTextGeneration(projectId, body);
 
-    if (!job) {
-      return reply.code(404).send({
+      if (!job) {
+        return reply.code(404).send({
+          error: {
+            code: "PROJECT_NOT_FOUND",
+            message: "Projeto nao encontrado para gerar texto.",
+          },
+        });
+      }
+
+      return reply.code(201).send(job);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao iniciar geracao de texto.";
+      return reply.code(502).send({
         error: {
-          code: "PROJECT_NOT_FOUND",
-          message: "Projeto nao encontrado para gerar texto.",
+          code: "TEXT_GENERATION_TRIGGER_FAILED",
+          message,
         },
       });
     }
-
-    return reply.code(201).send(job);
   });
 
   app.post("/api/v1/projects/:projectId/generations/images", async (request, reply) => {
-    const { projectId } = projectIdParamsSchema.parse(request.params);
-    const body = createImageGenerationSchema.parse(request.body);
-    const job = await createImageGeneration(projectId, body);
+    try {
+      const { projectId } = projectIdParamsSchema.parse(request.params);
+      const body = createImageGenerationSchema.parse(request.body);
+      const job = await createImageGeneration(projectId, body);
 
-    if (!job) {
-      return reply.code(404).send({
+      if (!job) {
+        return reply.code(404).send({
+          error: {
+            code: "PROJECT_NOT_FOUND",
+            message: "Projeto nao encontrado para gerar imagens.",
+          },
+        });
+      }
+
+      return reply.code(201).send(job);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao iniciar geracao de imagens.";
+      return reply.code(502).send({
         error: {
-          code: "PROJECT_NOT_FOUND",
-          message: "Projeto nao encontrado para gerar imagens.",
+          code: "IMAGE_GENERATION_TRIGGER_FAILED",
+          message,
         },
       });
     }
-
-    return reply.code(201).send(job);
   });
 
   app.get("/api/v1/projects/:projectId/jobs", async (request, reply) => {

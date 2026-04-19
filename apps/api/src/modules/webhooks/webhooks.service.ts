@@ -19,6 +19,7 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
   }
 
   const job = jobResult.rows[0];
+  const effectiveJobType = job.job_type as "text_generation" | "image_generation";
 
   await db.query(
     `
@@ -35,7 +36,7 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
     [input.jobId, input.provider, JSON.stringify(input.result)],
   );
 
-  if (input.jobType === "text_generation" && input.result.titles && input.result.description) {
+  if (effectiveJobType === "text_generation" && input.result.titles && input.result.description) {
     await db.query(`update text_results set is_current = false where project_id = $1`, [job.project_id]);
 
     await db.query(
@@ -66,10 +67,14 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
     await db.query(`update projects set status = 'text_review', updated_at = now() where id = $1`, [job.project_id]);
   }
 
-  if (input.jobType === "image_generation" && input.result.images?.length) {
+  if (effectiveJobType === "image_generation" && input.result.images?.length) {
     await db.query(`update image_results set is_current = false where project_id = $1`, [job.project_id]);
 
-    for (const image of input.result.images) {
+    for (const [index, image] of input.result.images.entries()) {
+      const imageKind = image.imageKind?.trim() || `variation_${index + 1}`;
+      const title = image.title?.trim() || `Imagem ${index + 1}`;
+      const storageKey = image.storageKey?.trim() || image.fileUrl;
+
       await db.query(
         `
           insert into image_results (
@@ -91,15 +96,15 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
         [
           job.project_id,
           input.jobId,
-          image.storageKey ?? image.fileUrl,
+          storageKey,
           image.fileUrl,
-          image.imageKind,
-          image.title ?? null,
+          imageKind,
+          title,
           image.promptUsed ?? null,
           input.provider,
           image.width ?? null,
           image.height ?? null,
-          image.variationIndex ?? null,
+          image.variationIndex ?? index + 1,
         ],
       );
     }

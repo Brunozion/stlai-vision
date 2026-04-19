@@ -40,22 +40,6 @@ export async function registerResultRoutes(app: FastifyInstance) {
     return result.textResult;
   });
 
-  app.post("/api/v1/projects/:projectId/text-result/:textResultId/approve", async (request, reply) => {
-    const { projectId, textResultId } = approveParamsSchema.parse(request.params);
-    const approved = await approveTextResult(projectId, textResultId);
-
-    if (!approved) {
-      return reply.code(404).send({
-        error: {
-          code: "TEXT_RESULT_NOT_FOUND",
-          message: "Resultado de texto nao encontrado para aprovacao.",
-        },
-      });
-    }
-
-    return approved;
-  });
-
   app.post("/api/v1/projects/:projectId/text-result/approve", async (request, reply) => {
     const { projectId } = projectIdParamsSchema.parse(request.params);
     const approved = await approveCurrentTextResult(projectId);
@@ -65,6 +49,22 @@ export async function registerResultRoutes(app: FastifyInstance) {
         error: {
           code: "TEXT_RESULT_NOT_FOUND",
           message: "Resultado de texto atual nao encontrado para aprovacao.",
+        },
+      });
+    }
+
+    return approved;
+  });
+
+  app.post("/api/v1/projects/:projectId/text-result/:textResultId/approve", async (request, reply) => {
+    const { projectId, textResultId } = approveParamsSchema.parse(request.params);
+    const approved = await approveTextResult(projectId, textResultId);
+
+    if (!approved) {
+      return reply.code(404).send({
+        error: {
+          code: "TEXT_RESULT_NOT_FOUND",
+          message: "Resultado de texto nao encontrado para aprovacao.",
         },
       });
     }

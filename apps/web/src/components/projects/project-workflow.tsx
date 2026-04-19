@@ -450,13 +450,29 @@ export function ProjectWorkflow({
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/text-result/approve`, {
+      let response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/text-result/approve`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
       });
 
       if (!response.ok) {
-        throw new Error("Nao foi possivel aprovar os textos.");
+        const currentTextResponse = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/text-result`, {
+          cache: "no-store",
+        });
+
+        if (currentTextResponse.ok) {
+          const currentText = (await currentTextResponse.json()) as TextResult;
+          response = await fetch(
+            `${apiBaseUrl}/api/v1/projects/${project.id}/text-result/${currentText.id}/approve`,
+            {
+              method: "POST",
+            },
+          );
+        }
+      }
+
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(details || "Nao foi possivel aprovar os textos.");
       }
 
       const approved = (await response.json()) as TextResult;

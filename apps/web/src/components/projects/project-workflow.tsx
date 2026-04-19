@@ -447,12 +447,10 @@ export function ProjectWorkflow({
   }
 
   async function handleApproveText() {
-    if (!textResult) return;
-
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/text-result/${textResult.id}/approve`, {
+      const response = await fetch(`${apiBaseUrl}/api/v1/projects/${project.id}/text-result/approve`, {
         method: "POST",
         headers: { "content-type": "application/json" },
       });
@@ -463,7 +461,7 @@ export function ProjectWorkflow({
 
       const approved = (await response.json()) as TextResult;
       setTextResult(approved);
-      setStep("image");
+      await handleGenerateImages();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Erro ao aprovar textos.");
     }

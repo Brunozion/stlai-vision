@@ -99,6 +99,26 @@ export async function approveTextResult(projectId: string, textResultId: string)
   return refreshed?.textResult ?? null;
 }
 
+export async function approveCurrentTextResult(projectId: string) {
+  const current = await getCurrentTextResult(projectId);
+  if (!current?.textResult) {
+    return null;
+  }
+
+  const db = getDb();
+  await db.query(
+    `
+      update text_results
+      set approved_by_user = true, approved_at = now()
+      where id = $1 and project_id = $2
+    `,
+    [current.textResult.id, projectId],
+  );
+
+  const refreshed = await getCurrentTextResult(projectId);
+  return refreshed?.textResult ?? null;
+}
+
 export async function listCurrentImageResults(projectId: string) {
   const project = await getProjectById(projectId);
   if (!project) return null;

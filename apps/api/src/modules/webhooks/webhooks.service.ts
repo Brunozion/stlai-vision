@@ -20,7 +20,8 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
 
   const job = jobResult.rows[0];
   const effectiveJobType = job.job_type as "text_generation" | "image_generation";
-  const callbackImages = input.result.images ?? input.images ?? [];
+  const resultPayload = input.result ?? {};
+  const callbackImages = resultPayload.images ?? input.images ?? [];
 
   await db.query(
     `
@@ -34,10 +35,10 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
         error_message = null
       where id = $1
     `,
-    [input.jobId, input.provider, JSON.stringify(input.result)],
+    [input.jobId, input.provider ?? null, JSON.stringify(resultPayload)],
   );
 
-  if (effectiveJobType === "text_generation" && input.result.titles && input.result.description) {
+  if (effectiveJobType === "text_generation" && resultPayload.titles && resultPayload.description) {
     await db.query(`update text_results set is_current = false where project_id = $1`, [job.project_id]);
 
     await db.query(
@@ -58,10 +59,10 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
       [
         job.project_id,
         input.jobId,
-        JSON.stringify(input.result.titles),
-        input.result.description,
-        JSON.stringify(input.result.bullets ?? []),
-        JSON.stringify(input.result.seoKeywords ?? []),
+        JSON.stringify(resultPayload.titles),
+        resultPayload.description,
+        JSON.stringify(resultPayload.bullets ?? []),
+        JSON.stringify(resultPayload.seoKeywords ?? []),
       ],
     );
 
@@ -72,9 +73,19 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
     await db.query(`update image_results set is_current = false where project_id = $1`, [job.project_id]);
 
     for (const [index, image] of callbackImages.entries()) {
-      const imageKind = image.imageKind?.trim() || `variation_${index + 1}`;
+      const fileUrl =
+        image.fileUrl ??
+        image.url ??
+        image.image_url ??
+        (image.b64_json ? `data:image/png;base64,${image.b64_json}` : null);
+
+      if (!fileUrl) {
+        continue;
+      }
+
+      const imageKind = image.imageKind?.trim() || image.kind?.trim() || `variation_${index + 1}`;
       const title = image.title?.trim() || `Imagem ${index + 1}`;
-      const storageKey = image.storageKey?.trim() || image.fileUrl;
+      const storageKey = image.storageKey?.trim() || image.key?.trim() || fileUrl;
 
       await db.query(
         `
@@ -98,11 +109,11 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
           job.project_id,
           input.jobId,
           storageKey,
-          image.fileUrl,
+          fileUrl,
           imageKind,
           title,
           image.promptUsed ?? null,
-          input.provider,
+          input.provider ?? null,
           image.width ?? null,
           image.height ?? null,
           image.variationIndex ?? index + 1,
@@ -159,7 +170,12 @@ export async function handleGenerationSuccess(input: GenerationSuccessInput) {
               and ct.transaction_type = 'consume'
           )
       `,
-      [input.jobId, job.credits_reserved, JSON.stringify({ provider: input.provider, jobType: input.jobType }), job.project_id],
+      [
+        input.jobId,
+        job.credits_reserved,
+        JSON.stringify({ provider: input.provider ?? null, jobType: input.jobType }),
+        job.project_id,
+      ],
     );
   }
 
@@ -196,7 +212,7 @@ export async function handleGenerationFailure(input: GenerationFailureInput) {
         error_message = $4
       where id = $1
     `,
-    [input.jobId, input.provider, input.errorCode, input.errorMessage],
+    [input.jobId, input.provider ?? null, input.errorCode, input.errorMessage],
   );
 
   await db.query(`update projects set status = 'failed', updated_at = now() where id = $1`, [
@@ -233,7 +249,7 @@ export async function handleGenerationFailure(input: GenerationFailureInput) {
       [
         input.jobId,
         jobResult.rows[0].credits_reserved,
-        JSON.stringify({ provider: input.provider, jobType: input.jobType, errorCode: input.errorCode }),
+        JSON.stringify({ provider: input.provider ?? null, jobType: input.jobType, errorCode: input.errorCode }),
         jobResult.rows[0].project_id,
       ],
     );
